@@ -1,0 +1,7 @@
+apiVersion: batch.jmarkp.uk/v1
+kind: ControlledJob
+metadata:
+  name: controlledjob-sample
+spec:
+  # Add fields here
+  foo: bar
