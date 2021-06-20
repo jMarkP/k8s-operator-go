@@ -13,4 +13,8 @@ resources:
   kind: CronJob
   path: github.com/jmarkp/k8s-operator-go/api/v1
   version: v1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
 version: "3"
