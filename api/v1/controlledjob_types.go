@@ -17,8 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	"time"
-
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +32,7 @@ type TimezoneSpec struct {
 
 	// Additional offset from the specified timezone
 	// +optional
-	Offset time.Time `json:"offset"`
+	OffsetSeconds int32 `json:"offset"`
 }
 
 type ScheduleAction string
