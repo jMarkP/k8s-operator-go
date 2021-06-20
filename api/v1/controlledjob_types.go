@@ -17,25 +17,65 @@ limitations under the License.
 package v1
 
 import (
+	"time"
+
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// TimezoneSpec defines the timezone which governs scheduled times
+type TimezoneSpec struct {
+	// Name of the timezone in the tzData. See https://golang.org/pkg/time/#LoadLocation for possible values
+	Name string `json:"name"`
+
+	// Additional offset from the specified timezone
+	// +optional
+	Offset time.Time `json:"offset"`
+}
+
+type ScheduleAction string
+
+const (
+	StartAction   ScheduleAction = "start"
+	StopAction    ScheduleAction = "stop"
+	RestartAction ScheduleAction = "restart"
+)
+
+// A specific event in the schedule
+type ScheduleEventSpec struct {
+	Schedule string         `json:"schedule"`
+	Action   ScheduleAction `json:"action"`
+}
+
 // ControlledJobSpec defines the desired state of ControlledJob
 type ControlledJobSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of ControlledJob. Edit controlledjob_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Timezone which governs all specified schedule times
+	Timezone TimezoneSpec `json:"timezone"`
+
+	// Events to control the job
+	Events []ScheduleEventSpec `json:"events"`
+
+	// Specifies the job that will be created when executing a CronJob.
+	JobTemplate batchv1beta1.JobTemplateSpec `json:"jobTemplate"`
 }
 
 // ControlledJobStatus defines the observed state of ControlledJob
 type ControlledJobStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// A list of pointers to currently running jobs.
+	// +optional
+	Active []corev1.ObjectReference `json:"active,omitempty"`
+
+	// Information when was the last time the job was successfully scheduled.
+	// +optional
+	LastScheduleTime *metav1.Time `json:"lastScheduleTime,omitempty"`
 }
 
 //+kubebuilder:object:root=true
