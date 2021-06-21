@@ -91,11 +91,12 @@ func (r *ControlledJobReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	*/
 	var controlledJob batch.ControlledJob
 	if err := r.Get(ctx, req.NamespacedName, &controlledJob); err != nil {
+		err = client.IgnoreNotFound(err)
 		log.Error(err, "unable to fetch ControlledJob")
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
 		// requeue (we'll need to wait for a new notification), and we can get them
 		// on deleted requests.
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		return ctrl.Result{}, err
 	}
 
 	/*

@@ -99,7 +99,7 @@ func (e *EventSpec) AsCronSpec() (string, error) {
 		return "", errors.New("timeOfDay must be in the format hh:mm")
 	}
 
-	return fmt.Sprintf("0 %s %s * * %s", timeOfDayMatches[2], timeOfDayMatches[1], e.Schedule.DaysOfWeek), nil
+	return fmt.Sprintf("%s %s * * %s", timeOfDayMatches[2], timeOfDayMatches[1], e.Schedule.DaysOfWeek), nil
 }
 
 // ConcurrencyPolicy describes how the job will be handled.
