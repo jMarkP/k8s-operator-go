@@ -35,18 +35,44 @@ type TimezoneSpec struct {
 	OffsetSeconds int32 `json:"offset"`
 }
 
-type ScheduleAction string
+type EventType string
 
 const (
-	StartAction   ScheduleAction = "start"
-	StopAction    ScheduleAction = "stop"
-	RestartAction ScheduleAction = "restart"
+	EventTypeStart   EventType = "start"
+	EventTypeStop    EventType = "stop"
+	EventTypeRestart EventType = "restart"
 )
 
+// FriendlyScheduleSpec is a more user friendly way to specify an event schedule
+// It's more limited than the format supported by CronSchedule
+type FriendlyScheduleSpec struct {
+	// TimeOfDay this event happens on the specified days
+	// Format: hh:mm
+	// +kubebuilder:validation:Pattern:=`^(\d{2}):(\d{2})$`
+	TimeOfDay string `json:"timeOfDay"`
+
+	// DaysOfWeek this event occurs on.
+	// Either a comma separated list (MON,TUE,THU)
+	// Or a range (MON-FRI)
+	// +kubebuilder:validation:Pattern:=`(?:^([a-zA-Z]{3})(?:,([a-zA-Z]{3}))?(?:,([a-zA-Z]{3}))?(?:,([a-zA-Z]{3}))?(?:,([a-zA-Z]{3}))?(?:,([a-zA-Z]{3}))?(?:,([a-zA-Z]{3}))?)$|^(?P<startRange>[a-zA-Z]{3})-(?P<endRange>[a-zA-Z]{3}$)`
+	DaysOfWeek string `json:"daysOfWeek"`
+}
+
 // A specific event in the schedule
-type ScheduleEventSpec struct {
-	Schedule string         `json:"schedule"`
-	Action   ScheduleAction `json:"action"`
+type EventSpec struct {
+	// Action to take at the specified time(s)
+	Action EventType `json:"action"`
+
+	// CronSchedule can contain an arbitrary Golang Cron Schedule
+	// (see https://pkg.go.dev/github.com/robfig/cron#hdr-CRON_Expression_Format)
+	// If set, schedule must NOT be set
+	// +optional
+	CronSchedule string `json:"cronSchedule,omitempty"`
+
+	// Schedule is a more user friendly way to specify an event schedule
+	// It's more limited than the format supported by CronSchedule
+	// If set, cronSchedule must NOT be set
+	Schedule FriendlyScheduleSpec `json:"schedule,omitempty"`
 }
 
 // ControlledJobSpec defines the desired state of ControlledJob
@@ -57,7 +83,7 @@ type ControlledJobSpec struct {
 	Timezone TimezoneSpec `json:"timezone"`
 
 	// Events to control the job
-	Events []ScheduleEventSpec `json:"events"`
+	Events []EventSpec `json:"events"`
 
 	// Specifies the job that will be created when executing a CronJob.
 	JobTemplate batchv1beta1.JobTemplateSpec `json:"jobTemplate"`
