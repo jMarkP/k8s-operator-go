@@ -89,6 +89,12 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              failurePolicy:
+                description: 'Specifies how to treat failure of jobs. Valid values
+                  are: - "NeverRestart" (default): On job failure, suspend the ControlledJob
+                  until manually unsuspended - "AlwaysRestart": On job failure, restart
+                  the job automatically (same semantics as Deployment)'
+                type: string
               jobTemplate:
                 description: Specifies the job that will be created when executing
                   a CronJob.
@@ -7124,7 +7130,8 @@ spec:
               suspend:
                 description: This flag tells the controller to suspend subsequent
                   executions, it does not apply to already started executions.  Defaults
-                  to false.
+                  to false. Is also set by the controller when a job fails and should
+                  not be restarted.
                 type: boolean
               timezone:
                 description: Timezone which governs all specified schedule times
@@ -7211,11 +7218,20 @@ spec:
                       type: string
                   type: object
                 type: array
+              isSuspended:
+                description: Set by the controller when a job fails and we shouldn't
+                  restart it. Can be cleared by the user resetting the spec.suspend
+                  flag
+                type: boolean
               lastScheduleTime:
                 description: Information when was the last time the job was successfully
                   scheduled.
                 format: date-time
                 type: string
+              shouldBeRunning:
+                description: ShouldBeRunning is true if we're between a start/stop
+                  event
+                type: boolean
             type: object
         type: object
     served: true

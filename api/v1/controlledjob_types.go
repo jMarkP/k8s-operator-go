@@ -121,6 +121,13 @@ const (
 	ReplaceConcurrent ConcurrencyPolicy = "Replace"
 )
 
+type FailurePolicy string
+
+const (
+	NeverRestartFailurePolicy  FailurePolicy = "NeverRestart"
+	AlwaysRestartFailurePolicy FailurePolicy = "AlwaysRestart"
+)
+
 // ControlledJobSpec defines the desired state of ControlledJob
 type ControlledJobSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
@@ -149,8 +156,16 @@ type ControlledJobSpec struct {
 	// +optional
 	ConcurrencyPolicy ConcurrencyPolicy `json:"concurrencyPolicy,omitempty"`
 
+	// Specifies how to treat failure of jobs.
+	// Valid values are:
+	// - "NeverRestart" (default): On job failure, suspend the ControlledJob until manually unsuspended
+	// - "AlwaysRestart": On job failure, restart the job automatically (same semantics as Deployment)
+	// +optional
+	FailurePolicy FailurePolicy `json:"failurePolicy,omitempty"`
+
 	// This flag tells the controller to suspend subsequent executions, it does
 	// not apply to already started executions.  Defaults to false.
+	// Is also set by the controller when a job fails and should not be restarted.
 	// +optional
 	Suspend *bool `json:"suspend,omitempty"`
 
@@ -180,6 +195,16 @@ type ControlledJobStatus struct {
 	// Information when was the last time the job was successfully scheduled.
 	// +optional
 	LastScheduleTime *metav1.Time `json:"lastScheduleTime,omitempty"`
+
+	// ShouldBeRunning is true if we're between a start/stop event
+	// +optional
+	ShouldBeRunning bool `json:"shouldBeRunning,omitempty"`
+
+	// Set by the controller when a job fails and we shouldn't
+	// restart it. Can be cleared by the user resetting the
+	// spec.suspend flag
+	// +optional
+	IsSuspended bool `json:"isSuspended,omitempty"`
 }
 
 //+kubebuilder:object:root=true
