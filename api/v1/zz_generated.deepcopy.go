@@ -134,8 +134,8 @@ func (in *ControlledJobStatus) DeepCopyInto(out *ControlledJobStatus) {
 		*out = make([]corev1.ObjectReference, len(*in))
 		copy(*out, *in)
 	}
-	if in.LastScheduleTime != nil {
-		in, out := &in.LastScheduleTime, &out.LastScheduleTime
+	if in.LastScheduledStartTime != nil {
+		in, out := &in.LastScheduledStartTime, &out.LastScheduledStartTime
 		*out = (*in).DeepCopy()
 	}
 }

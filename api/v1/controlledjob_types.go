@@ -102,25 +102,6 @@ func (e *EventSpec) AsCronSpec() (string, error) {
 	return fmt.Sprintf("%s %s * * %s", timeOfDayMatches[2], timeOfDayMatches[1], e.Schedule.DaysOfWeek), nil
 }
 
-// ConcurrencyPolicy describes how the job will be handled.
-// Only one of the following concurrent policies may be specified.
-// If none of the following policies is specified, the default one
-// is AllowConcurrent.
-// +kubebuilder:validation:Enum=Allow;Forbid;Replace
-type ConcurrencyPolicy string
-
-const (
-	// AllowConcurrent allows CronJobs to run concurrently.
-	AllowConcurrent ConcurrencyPolicy = "Allow"
-
-	// ForbidConcurrent forbids concurrent runs, skipping next run if previous
-	// hasn't finished yet.
-	ForbidConcurrent ConcurrencyPolicy = "Forbid"
-
-	// ReplaceConcurrent cancels currently running job and replaces it with a new one.
-	ReplaceConcurrent ConcurrencyPolicy = "Replace"
-)
-
 type FailurePolicy string
 
 const (
@@ -148,14 +129,6 @@ type ControlledJobSpec struct {
 	// +optional
 	StartingDeadlineSeconds *int64 `json:"startingDeadlineSeconds,omitempty"`
 
-	// Specifies how to treat concurrent executions of a Job.
-	// Valid values are:
-	// - "Allow" (default): allows CronJobs to run concurrently;
-	// - "Forbid": forbids concurrent runs, skipping next run if previous run hasn't finished yet;
-	// - "Replace": cancels currently running job and replaces it with a new one
-	// +optional
-	ConcurrencyPolicy ConcurrencyPolicy `json:"concurrencyPolicy,omitempty"`
-
 	// Specifies how to treat failure of jobs.
 	// Valid values are:
 	// - "NeverRestart" (default): On job failure, suspend the ControlledJob until manually unsuspended
@@ -182,6 +155,10 @@ type ControlledJobSpec struct {
 	// This is a pointer to distinguish between explicit zero and not specified.
 	// +optional
 	FailedJobsHistoryLimit *int32 `json:"failedJobsHistoryLimit,omitempty"`
+
+	// Possible extensions:
+	// - Replica count: When the schedule says the job should be running, how many replicas should we aim for?
+	// - Number of automated restarts before we suspend (+ new FailurePolicy value to match)
 }
 
 // ControlledJobStatus defines the observed state of ControlledJob
@@ -192,9 +169,9 @@ type ControlledJobStatus struct {
 	// +optional
 	Active []corev1.ObjectReference `json:"active,omitempty"`
 
-	// Information when was the last time the job was successfully scheduled.
+	// The most recent scheduled start time that was actioned
 	// +optional
-	LastScheduleTime *metav1.Time `json:"lastScheduleTime,omitempty"`
+	LastScheduledStartTime *metav1.Time `json:"lastScheduledStartTime,omitempty"`
 
 	// ShouldBeRunning is true if we're between a start/stop event
 	// +optional
