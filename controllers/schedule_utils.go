@@ -19,7 +19,7 @@ type ScheduledEvent struct {
 // Work out if we should currently be running, and when the current period
 // of being started or stopped began
 func (r *ControlledJobReconciler) calculateDesiredStatus(ctx context.Context, controlledJob *batch.ControlledJob, now time.Time) (shouldBeRunning bool, startOfCurrentPeriod time.Time, err error) {
-	mostRecentEvent, err := findNearestEvent(controlledJob, now, directionPrevious)
+	mostRecentEvent, err := findNearestEvent(ctx, controlledJob, now, directionPrevious)
 
 	shouldBeRunning = mostRecentEvent.Type == batch.EventTypeStart
 
@@ -31,8 +31,8 @@ func (r *ControlledJobReconciler) calculateDesiredStatus(ctx context.Context, co
 // The reconciler will use this to:
 //  - immediately enqueue any missed event
 //  - tell the controller to requeue us in time for the next scheduled event
-func getNextEvent(controlledJob *batch.ControlledJob, now time.Time) (next *ScheduledEvent, err error) {
-	return findNearestEvent(controlledJob, now, directionNext)
+func getNextEvent(ctx context.Context, controlledJob *batch.ControlledJob, now time.Time) (next *ScheduledEvent, err error) {
+	return findNearestEvent(ctx, controlledJob, now, directionNext)
 }
 
 type eventDirection int
@@ -46,7 +46,8 @@ const (
 // We need to be able to find, amongst all those events, the most recent and the next
 // scheduled event.
 // This func searches either forward or backward for the nearest event to 'now' among the event specs
-func findNearestEvent(controlledJob *batch.ControlledJob, now time.Time, direction eventDirection) (*ScheduledEvent, error) {
+func findNearestEvent(ctx context.Context, controlledJob *batch.ControlledJob, now time.Time, direction eventDirection) (*ScheduledEvent, error) {
+
 	var nearestEventTime time.Time = time.Time{}
 	var nearestEventSpec batch.EventSpec
 
@@ -77,6 +78,9 @@ func findNearestEvent(controlledJob *batch.ControlledJob, now time.Time, directi
 	// Is the testTime time closer (in the desired direction)
 	// to the reference time?
 	eventIsNearer := func(testTime, referenceTime time.Time) bool {
+		if referenceTime.IsZero() {
+			return true
+		}
 		if direction == directionNext {
 			return testTime.Before(referenceTime)
 		}

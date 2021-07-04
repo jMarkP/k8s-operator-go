@@ -89,6 +89,20 @@ func (r *ControlledJobReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
+	currentStatus := controlledJob.Status
+	status := batch.ControlledJobStatus{}
+	controlledJob.Status = status
+
+	/////////////
+
+	// if err := r.Status().Update(ctx, &controlledJob); err != nil {
+	// 	log.Error(err, "unable to update ControlledJob status")
+	// 	return ctrl.Result{}, err
+	// }
+	// return ctrl.Result{}, nil
+
+	//////////////////
+
 	var childJobs kbatch.JobList
 	if err := r.List(ctx, &childJobs, client.InNamespace(req.Namespace), client.MatchingFields{jobOwnerKey: req.Name}); err != nil {
 		log.Error(err, "unable to list child Jobs")
@@ -99,7 +113,7 @@ func (r *ControlledJobReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// And work out when the most recent one started
 	activeJobs, successfulJobs, failedJobs, mostRecentTime := categoriseJobs(ctx, childJobs)
 
-	r.recordEventStatus(ctx, controlledJob, mostRecentTime, activeJobs)
+	r.recordEventStatus(ctx, status, mostRecentTime, activeJobs)
 
 	log.V(1).Info("job count", "active jobs", len(activeJobs), "successful jobs", len(successfulJobs), "failed jobs", len(failedJobs))
 
@@ -111,11 +125,18 @@ func (r *ControlledJobReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		The status subresource ignores changes to spec, so it's less likely to conflict
 		with any other updates, and can have separate permissions.
 	*/
-	if err := r.Status().Update(ctx, &controlledJob); err != nil {
-		log.Error(err, "unable to update ControlledJob status")
-		return ctrl.Result{}, err
-	}
-
+	// if err := r.Status().Update(ctx, &controlledJob); err != nil {
+	// 	log.Error(err, "unable to update ControlledJob status")
+	// 	return ctrl.Result{}, err
+	// }
+	// if err := r.Get(ctx, req.NamespacedName, &controlledJob); err != nil {
+	// 	err = client.IgnoreNotFound(err)
+	// 	log.Error(err, "unable to re-fetch ControlledJob")
+	// 	// we'll ignore not-found errors, since they can't be fixed by an immediate
+	// 	// requeue (we'll need to wait for a new notification), and we can get them
+	// 	// on deleted requests.
+	// 	return ctrl.Result{}, err
+	// }
 	r.cleanupOldJobs(ctx, &controlledJob, successfulJobs, failedJobs)
 
 	// If we're suspended we can exit now
@@ -127,7 +148,7 @@ func (r *ControlledJobReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Work out when the next event (start or stop) is scheduled to happen
 	// So that once we've actioned all current reconciliation we can sleep
 	// until that time
-	nextScheduledEvent, err := getNextEvent(&controlledJob, r.Now())
+	nextScheduledEvent, err := getNextEvent(ctx, &controlledJob, r.Now())
 	if err != nil {
 		log.Error(err, "unable to figure out ControlledJob schedule")
 		// we don't really care about requeuing until we get an update that
@@ -221,12 +242,20 @@ func (r *ControlledJobReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			// ORDER HERE IS IMPORTANT. WE HAVE TO DETECT THE USER UNSUSPENDING FIRST, OR WE WILL HAVE
 			//  OVERWRITTEN THAT SIGNAL
 			specSuspendFlagIsSet := controlledJob.Spec.Suspend != nil && *controlledJob.Spec.Suspend
-			userHasUnsuspended := !specSuspendFlagIsSet && controlledJob.Status.IsSuspended
+			userHasUnsuspended := !specSuspendFlagIsSet && currentStatus.IsSuspended
 			if userHasUnsuspended {
 				log.V(1).Info("job should be running (we were suspended but the user has unsuspended us)", "startOfCurrentPeriod", startOfCurrentPeriod)
 				controlledJob.Status.IsSuspended = false
 				if err := r.Status().Update(ctx, &controlledJob); err != nil {
 					log.Error(err, "unable to update ControlledJob status to unsuspend")
+					return ctrl.Result{}, err
+				}
+				if err := r.Get(ctx, req.NamespacedName, &controlledJob); err != nil {
+					err = client.IgnoreNotFound(err)
+					log.Error(err, "unable to re-fetch ControlledJob")
+					// we'll ignore not-found errors, since they can't be fixed by an immediate
+					// requeue (we'll need to wait for a new notification), and we can get them
+					// on deleted requests.
 					return ctrl.Result{}, err
 				}
 				shouldStartNewJob = true
@@ -235,6 +264,25 @@ func (r *ControlledJobReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				var suspend = true
 				controlledJob.Spec.Suspend = &suspend
 				controlledJob.Status.IsSuspended = true
+				if err := r.Update(ctx, &controlledJob); err != nil {
+					log.Error(err, "unable to update ControlledJob spec to suspend")
+					return ctrl.Result{}, err
+				}
+
+				if err := r.Get(ctx, req.NamespacedName, &controlledJob); err != nil {
+					err = client.IgnoreNotFound(err)
+					log.Error(err, "unable to re-fetch ControlledJob")
+					// we'll ignore not-found errors, since they can't be fixed by an immediate
+					// requeue (we'll need to wait for a new notification), and we can get them
+					// on deleted requests.
+					return ctrl.Result{}, err
+				}
+
+				log.Info(fmt.Sprintf("Status: %+v ||| %+v", status, controlledJob.Status))
+				if err := r.Status().Update(ctx, &controlledJob); err != nil {
+					log.Error(err, "unable to update ControlledJob status")
+					return ctrl.Result{}, err
+				}
 				shouldStartNewJob = false
 			}
 		}
@@ -409,25 +457,25 @@ func getScheduledTimeForJob(job *kbatch.Job) (*time.Time, error) {
 	return &timeParsed, nil
 }
 
-func (r *ControlledJobReconciler) recordEventStatus(ctx context.Context, controlledJob batch.ControlledJob, mostRecentJobStartTime *time.Time, activeJobs []*kbatch.Job) {
+func (r *ControlledJobReconciler) recordEventStatus(ctx context.Context, status batch.ControlledJobStatus, mostRecentJobStartTime *time.Time, activeJobs []*kbatch.Job) {
 	log := log.FromContext(ctx)
 
 	// Store the last event time
 	if mostRecentJobStartTime != nil {
-		controlledJob.Status.LastScheduledStartTime = &metav1.Time{Time: *mostRecentJobStartTime}
+		status.LastScheduledStartTime = &metav1.Time{Time: *mostRecentJobStartTime}
 	} else {
-		controlledJob.Status.LastScheduledStartTime = nil
+		status.LastScheduledStartTime = nil
 	}
 
 	// Record the set of currently active jobs
-	controlledJob.Status.Active = nil
+	status.Active = nil
 	for _, activeJob := range activeJobs {
 		jobRef, err := ref.GetReference(r.Scheme, activeJob)
 		if err != nil {
 			log.Error(err, "unable to make reference to active job", "job", activeJob)
 			continue
 		}
-		controlledJob.Status.Active = append(controlledJob.Status.Active, *jobRef)
+		status.Active = append(status.Active, *jobRef)
 	}
 }
 
