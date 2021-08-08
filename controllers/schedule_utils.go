@@ -144,7 +144,7 @@ func cronPrev(s *cron.SpecSchedule, t time.Time) time.Time {
 	// t = t
 
 	// This flag indicates whether a field has been decremented.
-	subtracted := false
+	//subtracted := false
 
 	// If no time is found within five years, return zero.
 	yearLimit := t.Year() - 5
@@ -157,13 +157,16 @@ WRAP:
 	// Find the last applicable month.
 	// If it's this month, then do nothing.
 	for 1<<uint(t.Month())&s.Month == 0 {
+		t = time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
+		t = t.Add(-1 * time.Second)
+
 		// If we have to subtract a month, reset the other parts to 0.
-		if !subtracted {
-			subtracted = true
-			// Otherwise, set the date at the beginning (since the current time is irrelevant).
-			t = time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
-		}
-		t = t.AddDate(0, -1, 0)
+		// if !subtracted {
+		// 	subtracted = true
+		// 	// Otherwise, set the date at the beginning (since the current time is irrelevant).
+		// 	t = time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
+		// }
+		// t = t.AddDate(0, -1, 0)
 
 		// Wrapped around.
 		if t.Month() == time.December {
@@ -173,10 +176,13 @@ WRAP:
 
 	// Now get a day in that month.
 	for !dayMatches(s, t) {
-		if !subtracted {
-			subtracted = true
-			t = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
-		}
+
+		t = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+
+		// if !subtracted {
+		// 	subtracted = true
+		// 	t = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+		// }
 
 		// If the current day is the 1st, then by subtracting 1
 		// we might be going back a year (January->December) so
@@ -186,16 +192,21 @@ WRAP:
 			goto WRAP
 		}
 
+		t = t.Add(-1 * time.Second)
+
 		// Otherwise carry on
 		t = t.AddDate(0, 0, -1)
 	}
 
 	for 1<<uint(t.Hour())&s.Hour == 0 {
-		if !subtracted {
-			subtracted = true
-			t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
-		}
-		t = t.Add(-1 * time.Hour)
+		// if !subtracted {
+		// 	subtracted = true
+		// 	t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
+		// }
+		//t = t.Add(-1 * time.Hour)
+
+		t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
+		t = t.Add(-1 * time.Second)
 
 		if t.Hour() == 23 {
 			goto WRAP
@@ -203,11 +214,14 @@ WRAP:
 	}
 
 	for 1<<uint(t.Minute())&s.Minute == 0 {
-		if !subtracted {
-			subtracted = true
-			t = t.Truncate(time.Minute)
-		}
-		t = t.Add(-1 * time.Minute)
+		// if !subtracted {
+		// 	subtracted = true
+		// 	t = t.Truncate(time.Minute)
+		// }
+		//t = t.Add(-1 * time.Minute)
+
+		t = t.Truncate(time.Minute)
+		t = t.Add(-1 * time.Second)
 
 		if t.Minute() == 59 {
 			goto WRAP
@@ -215,10 +229,11 @@ WRAP:
 	}
 
 	for 1<<uint(t.Second())&s.Second == 0 {
-		if !subtracted {
-			subtracted = true
-			t = t.Truncate(time.Second)
-		}
+		// if !subtracted {
+		// 	subtracted = true
+		// 	t = t.Truncate(time.Second)
+		// }
+		t = t.Truncate(time.Second)
 		t = t.Add(-1 * time.Second)
 
 		if t.Second() == 59 {

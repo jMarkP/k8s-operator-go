@@ -16,7 +16,20 @@ spec:
     singular: controlledjob
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - jsonPath: .status.isRunning
+      name: Is running
+      type: boolean
+    - jsonPath: .status.shouldBeRunning
+      name: Should be running
+      type: boolean
+    - jsonPath: .status.isSuspended
+      name: Suspended
+      type: boolean
+    - jsonPath: .status.lastScheduledStartTime
+      name: Last scheduled start time
+      type: date
+    name: v1
     schema:
       openAPIV3Schema:
         description: ControlledJob is the Schema for the controlledjobs API
@@ -7207,6 +7220,9 @@ spec:
                       type: string
                   type: object
                 type: array
+              isRunning:
+                description: IsRunning is true if there are any active events
+                type: boolean
               isSuspended:
                 description: Set by the controller when a job fails and we shouldn't
                   restart it. Can be cleared by the user resetting the spec.suspend

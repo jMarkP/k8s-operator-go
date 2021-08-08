@@ -177,6 +177,10 @@ type ControlledJobStatus struct {
 	// +optional
 	ShouldBeRunning bool `json:"shouldBeRunning,omitempty"`
 
+	// IsRunning is true if there are any active events
+	// +optional
+	IsRunning bool `json:"isRunning,omitempty"`
+
 	// Set by the controller when a job fails and we shouldn't
 	// restart it. Can be cleared by the user resetting the
 	// spec.suspend flag
@@ -186,6 +190,10 @@ type ControlledJobStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Is running",type=boolean,JSONPath=`.status.isRunning`
+//+kubebuilder:printcolumn:name="Should be running",type=boolean,JSONPath=`.status.shouldBeRunning`
+//+kubebuilder:printcolumn:name="Suspended",type=boolean,JSONPath=`.status.isSuspended`
+//+kubebuilder:printcolumn:name="Last scheduled start time",type=date,JSONPath=`.status.lastScheduledStartTime`
 
 // ControlledJob is the Schema for the controlledjobs API
 type ControlledJob struct {
